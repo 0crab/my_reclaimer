@@ -13,16 +13,19 @@ public:
     void deallocate(T * ptr);
     void free_limbobag(BufferQueue<T> * freebag);
 
+    uint64_t get_total_size();
     void dump();
 
 private:
 
+    uint64_t size; //total number of items in this multi level queue
     BufferQueue<T> BFQS[MAX_ORDER];
 
 };
 
 template <typename T>
 MultiLevelQueue<T>::MultiLevelQueue() {
+    size = 0;
     uint64_t s = BASE_SIZE;
     //size,listhead has been initialized
     for (auto &i : this->BFQS) {
@@ -32,19 +35,18 @@ MultiLevelQueue<T>::MultiLevelQueue() {
 }
 
 template <typename T>
-void MultiLevelQueue<T>::dump() {
-    for(int i=0;i<MAX_ORDER;i++){
-        std::cout<<"ORDER:\t"<<i<<" unif_size:\t"<<BFQS[i].get_unif_size()<<" size\t"<<BFQS[i].get_size()<<std::endl;
-    }
+uint64_t MultiLevelQueue<T>::get_total_size() {
+    return size;
+
 }
 
-template <typename T>
+template<typename T>
 T * MultiLevelQueue<T>::allocate(uint64_t len) {
-    void *p;
+    T *p;
     //size is too large,malloc directly
     if(len>MAX_UNIF_SIZE){
-        p=malloc(len);
-        return (T *)p;
+        p=(T*) malloc(len);
+        return p;
     }
 
     //serch in bufqueue
@@ -52,10 +54,17 @@ T * MultiLevelQueue<T>::allocate(uint64_t len) {
     int i=0;
     while(BFQS[i].get_unif_size() < len) i++;
 
-    return BFQS[i].remove(len);
+    bool malloc_flag = false;
+    p = BFQS[i].remove(len,malloc_flag);
+    if(!malloc_flag) size--;
+    assert(size >= 0);
+
+    return p;
 
 }
 
+
+//only used in reclaimering freebag
 template<typename T>
 void MultiLevelQueue<T>::deallocate(T *ptr) {
     uint64_t len = ptr->get_struct_len();
@@ -67,6 +76,7 @@ void MultiLevelQueue<T>::deallocate(T *ptr) {
     while(BFQS[i].get_unif_size()<len) i++;
 
     BFQS[i].add(ptr,len);
+    size++;
 }
 
 
@@ -76,6 +86,15 @@ void MultiLevelQueue<T>::free_limbobag(BufferQueue<T> * freebag) {
     while(freebag->get_size() > 0){
         T * p = freebag->pop();
         deallocate(p);
+    }
+}
+
+template<typename T>
+void MultiLevelQueue<T>::dump() {
+    cout<<"mlq total size: "<<size<<endl;
+    for(int i = 0; i < MAX_ORDER; i++){
+        BufferQueue<T> & bfq = BFQS[i];
+        cout<<i<<" : "<<bfq.get_unif_size()<<" : "<<bfq.get_size()<<endl;
     }
 }
 

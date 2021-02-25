@@ -10,7 +10,7 @@
 //The growth rate
 #define FACTOR  1.5
 //Maximum number of increases
-#define MAX_ORDER 24
+#define MAX_ORDER 5
 
 #define MAX_UNIF_SIZE BASE_SIZE*pow(FACTOR,MAX_ORDER-1)
 

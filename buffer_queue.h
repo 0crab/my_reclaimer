@@ -18,7 +18,7 @@ class BufferQueue{
 public:
     BufferQueue();
 
-    T * remove(uint64_t len);
+    T * remove(uint64_t len,bool & malloc_flag);
 
     void add(void * ptr,uint64_t len);
 
@@ -62,12 +62,13 @@ inline uint64_t BufferQueue<T>::get_unif_size() {
 
 //this method only be used in multi_level_queue to allocate a specific size of memory
 template <typename T>
-T * BufferQueue<T>::remove(uint64_t len) {
+T * BufferQueue<T>::remove(uint64_t len,bool & malloc_flag) {
     assert(unif_size !=0 && len <= MAX_UNIF_SIZE);
 
     void *p;
 
     if(size > 0 ){
+        malloc_flag = false;
         Listhead *head=& listhead;
         Listhead *node;
         node=head->prev;
@@ -78,6 +79,7 @@ T * BufferQueue<T>::remove(uint64_t len) {
         node->next= nullptr;
         p = GET_MEM(node);
     }else{
+        malloc_flag = true;
         p=malloc(unif_size + 2 * sizeof(POINTER)); //buffer size + two pointer spaces used to construct lists
         ((Listhead *)p)->prev= nullptr;
         ((Listhead *)p)->next= nullptr;

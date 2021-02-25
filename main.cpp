@@ -188,4 +188,6 @@ int main(int argc, char **argv){
 
     cout<<"false count "<<false_count<<endl;
 
+    myReclaimer->dump();
+
 }
