@@ -33,6 +33,8 @@ struct Item{
 
 #else
 
+#define ITEM_LEN_ALLOC(kl,vl) (kl+vl+2* sizeof(ltype))
+
 #define ITEM_KEY(item_ptr) ((Item*)item_ptr)->buf
 #define ITEM_VALUE(item_ptr) (((Item * )item_ptr)->buf + ITEM_KEY_LEN(item_ptr))
 #define ITEM_LEN(item_ptr)  (ITEM_KEY_LEN(item_ptr) + ITEM_VALUE_LEN(item_ptr) + 2* sizeof(ltype))

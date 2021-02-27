@@ -4,7 +4,14 @@
 #include <cstdint>
 #include "def.h"
 
+
+struct Listhead{
+    Listhead * prev,* next;
+};
+
+
 #define POINTER void **
+
 
 #define GET_QUEUE_NODE(p) \
             (Listhead *)((POINTER)p-2)
@@ -12,7 +19,8 @@
 #define GET_MEM(listnode) \
             (void *)(listnode+1)
 
-
+#define GET_MALLOC_RETURN(len) \
+            (void *)((void **)malloc(len) + 2)
 template <typename T>
 class BufferQueue{
 public:
@@ -29,11 +37,10 @@ public:
     inline uint64_t get_unif_size();
 
 private:
-    struct Listhead{
-        Listhead * prev,* next;
-    };
+
 
     uint64_t unif_size; //used in multi_level_queue to identify uniform memory
+                        //unif_size does not contain list pointer
     uint64_t size;  //number of block memory the buffer has
     Listhead listhead; //queue head
     PAD;
@@ -79,6 +86,7 @@ T * BufferQueue<T>::remove(uint64_t len,bool & malloc_flag) {
         node->next= nullptr;
         p = GET_MEM(node);
     }else{
+        tw_info.num_new_item_malloc++;
         malloc_flag = true;
         p=malloc(unif_size + 2 * sizeof(POINTER)); //buffer size + two pointer spaces used to construct lists
         ((Listhead *)p)->prev= nullptr;
@@ -106,7 +114,8 @@ T * BufferQueue<T>::pop() {
 //both used in multi_level_queue and limbo bag
 template<typename T>
 void BufferQueue<T>::add(void *ptr, uint64_t len) {
-    if(unif_size != 0) assert(len <= unif_size);
+    assert(len <= unif_size || unif_size==0);
+
 
     Listhead * head= & listhead;
     Listhead * node= GET_QUEUE_NODE(ptr);

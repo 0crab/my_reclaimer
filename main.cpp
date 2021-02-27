@@ -40,6 +40,7 @@ Reclaimer_ebr_token * myReclaimer;
 
 
 void concurrent_worker(int tid){
+    debug_tid = tid;
     myReclaimer->initThread(tid);
 
     uint64_t index = 0;
@@ -50,14 +51,10 @@ void concurrent_worker(int tid){
             Request & req = requests[i];
             if(writelist[i]){
                 index = *(uint64_t *)req.key;
-                assert(index == *(uint64_t *)req.value);
+                //assert(index == *(uint64_t *)req.value);
 
-                Item *ptr = (Item *) myReclaimer->allocate(tid,DEFAULT_ITEM_LEN);
-                //Item *ptr = new Item;
-//                ptr->key_len = req.key_len;
-//                ptr->value_len = req.value_len;
-//                memcpy(ITEM_KEY(ptr),req.key,req.key_len);
-//                memcpy(ITEM_VALUE(ptr),req.value,req.value_len);
+                Item *ptr = (Item *) myReclaimer->allocate(tid,ITEM_LEN_ALLOC(req.key_len,req.value_len));
+
                 init_item(ptr,req.key,req.key_len,req.value,req.value_len);
 
                 uint64_t old;
@@ -66,22 +63,31 @@ void concurrent_worker(int tid){
                 }while(!buckets[index].compare_exchange_strong(old, (uint64_t) ptr)); //changed memory order
 
                 Item *oldptr = (Item *) old;
+
                 uint64_t k,v;
-                if(*(uint64_t *)ITEM_VALUE(oldptr) != index){
-                    k = *(uint64_t *)ITEM_KEY(oldptr);
-                    v = *(uint64_t *)ITEM_VALUE(oldptr);
-                }
-                assert(*(uint64_t *)ITEM_VALUE(oldptr) == index);
+                k = *(uint64_t *)ITEM_KEY(oldptr);
+                //v = *(uint64_t *)ITEM_VALUE(oldptr);
+
+                assert(*(uint64_t *)ITEM_KEY(oldptr) == index);
+                uint32_t vl = ITEM_VALUE_LEN(oldptr);
+                int tmpv = vl % 10;
+                string tmps(vl,'0' +tmpv);
+                if(strncmp(tmps.c_str(),ITEM_VALUE(oldptr),vl)) assert(false);
+
                 myReclaimer->deallocate(tid,oldptr);
 
             }else{
                 index =  *(uint64_t *)req.key;
-                assert(index == *(uint64_t *)req.value);
+                //assert(index == *(uint64_t *)req.value);
 
                 Item *ptr = (Item *) myReclaimer->load(tid, std::ref(buckets[index]));
 
 
-                assert(*(uint64_t *)ITEM_VALUE(ptr) == index);
+                assert(*(uint64_t *)ITEM_KEY(ptr) == index);
+                uint32_t vl = ITEM_VALUE_LEN(ptr);
+                int tmpv = vl % 10;
+                string tmps(vl,'0' +tmpv);
+                if(strncmp(tmps.c_str(),ITEM_VALUE(ptr),vl)) assert(false);
                 //if(*(uint64_t *)ITEM_VALUE(ptr) != index) false_count++;
 
 
@@ -96,6 +102,7 @@ void concurrent_worker(int tid){
         }
     }
     runtimelist[tid] = t.getRunTime();
+    dump_debug_thread_work_info();
 }
 
 void prepare_data(){
@@ -108,16 +115,22 @@ void prepare_data(){
     srand((unsigned) time(NULL));
     //init_req
 
+    int kl = 8,vl;
     requests = new Request[TEST_NUM];
     for (size_t i = 0; i < TEST_NUM; i++) {
 
-        requests[i].key = (char *) calloc(1, 8 * sizeof(char));
-        requests[i].key_len = 8;
+        requests[i].key_len = kl;
+        requests[i].key = (char *) calloc(1, kl * sizeof(char));
         *((size_t *) requests[i].key) = loads[i];
 
-        requests[i].value = (char *) calloc(1, 8 * sizeof(char));
-        requests[i].value_len = 8;
-        *((size_t *) requests[i].value) = loads[i];
+        vl = rand() % 505;
+        //vl=600;
+        requests[i].value_len = vl;
+        requests[i].value = (char *) calloc(1, vl * sizeof(char));
+
+        int tmpv = vl % 10;
+        string tmps(vl,'0' +tmpv);
+        memcpy(requests[i].value,tmps.c_str(),vl);
 
     }
 
@@ -150,14 +163,16 @@ int main(int argc, char **argv){
 
     buckets = new std::atomic<uint64_t>[BUCKET_NUM];
 
-    myReclaimer->initThread();
+    myReclaimer->initThread(0);
 
     prepare_data();
 
     for (size_t i = 0; i < BUCKET_NUM ; i++) {
-        Item *ptr = (Item *) myReclaimer->allocate(0,DEFAULT_ITEM_LEN);
+        Item *ptr = (Item *) myReclaimer->allocate(0,ITEM_LEN_ALLOC(8,8));
         size_t idx = i;
-        init_item(ptr,(char *)&i,8,(char *)&i,8);
+
+        char tmps[10] = "88888888";
+        init_item(ptr,(char *)&i,8,tmps,8);
         buckets[idx].store((uint64_t) ptr);
     }
 
